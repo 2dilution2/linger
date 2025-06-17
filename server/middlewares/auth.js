@@ -19,10 +19,13 @@ export const auth = async (req, res, next) => {
         const userProfile = await UserProfile.findOne({ userId: req.user.userId });
         if (userProfile) {
           req.user.penname = userProfile.penname;
+        } else {
+          req.user.penname = '사용자'; // 프로필이 없는 경우 기본값 설정
         }
       } catch (profileError) {
         console.error('사용자 프로필 조회 실패:', profileError);
-        // 프로필 조회 실패해도 인증은 계속 진행
+        // 프로필 조회 실패 시 기본값 설정
+        req.user.penname = '사용자';
       }
     }
     

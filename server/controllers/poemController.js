@@ -456,11 +456,7 @@ export const getEmotionStats = async (req, res, next) => {
 
     // 태그 ID로 감정 태그 정보 조회
     const HashTag = mongoose.model('HashTag');
-    const emotionTagsData = await HashTag.find({
-      _id: { $in: Object.keys(tagCounts) },
-      type: 'emotion'
-    });
-
+    
     // 기본 태그 색상 매핑
     const defaultColors = {
       '기쁨': '#FFD700',
@@ -483,14 +479,66 @@ export const getEmotionStats = async (req, res, next) => {
 
     // 감정 태그 데이터 구성
     const emotionStats = [];
+    
+    // 문자열로 된 태그 이름과 ObjectId로 구성된 태그 ID를 모두 처리
+    const validTagIds = [];
+    const tagNameIds = [];
+    
+    // ID 형식 확인 및 분류
+    Object.keys(tagCounts).forEach(tagId => {
+      // MongoDB ObjectId 패턴 검사 (24자리 16진수)
+      if (/^[0-9a-fA-F]{24}$/.test(tagId)) {
+        validTagIds.push(mongoose.Types.ObjectId(tagId));
+      } else {
+        // ObjectId가 아닌 경우 태그 이름으로 간주
+        tagNameIds.push(tagId);
+      }
+    });
+    
+    console.log(`감정 통계 처리: ObjectId ${validTagIds.length}개, 문자열 ${tagNameIds.length}개`);
+    
+    // 유효한 ObjectId로 태그 조회
+    let emotionTagsData = [];
+    if (validTagIds.length > 0) {
+      emotionTagsData = await HashTag.find({
+        _id: { $in: validTagIds },
+        type: 'emotion'
+      });
+    }
+    
+    // 태그 이름으로 조회 (ObjectId가 아닌 경우)
+    if (tagNameIds.length > 0) {
+      const nameBasedTags = await HashTag.find({
+        name: { $in: tagNameIds },
+        type: 'emotion'
+      });
+      
+      // 결과 합치기
+      emotionTagsData = [...emotionTagsData, ...nameBasedTags];
+    }
+    
+    // 태그 데이터를 ID와 이름 기준으로 맵 구성
     const tagMap = {};
     
-    // 태그 데이터를 ID 기준으로 맵 구성
+    // ID 기준 매핑
     emotionTagsData.forEach(tag => {
-      tagMap[tag._id.toString()] = {
+      const tagId = tag._id.toString();
+      tagMap[tagId] = {
         name: tag.name,
         color: tag.color || defaultColors[tag.name] || '#808080'
       };
+      // 이름 기준 매핑도 추가 (문자열 ID 지원)
+      tagMap[tag.name] = {
+        name: tag.name,
+        color: tag.color || defaultColors[tag.name] || '#808080'
+      };
+    });
+    
+    // 기본 감정 태그 이름 추가 (DB에 없는 경우 대비)
+    Object.entries(defaultColors).forEach(([name, color]) => {
+      if (!tagMap[name]) {
+        tagMap[name] = { name, color };
+      }
     });
     
     // 태그별 통계 구성
@@ -504,6 +552,8 @@ export const getEmotionStats = async (req, res, next) => {
           percentage: Math.round((count / totalTags) * 100),
           color: tag.color
         });
+      } else {
+        console.warn(`감정 태그 정보 없음: ${tagId}`);
       }
     });
 

@@ -20,4 +20,7 @@ const bookmarkSchema = new mongoose.Schema({
   },
 });
 
+// 사용자가 같은 시를 중복 북마크하지 못하도록 복합 인덱스 추가
+bookmarkSchema.index({ poemId: 1, userId: 1 }, { unique: true });
+
 export default mongoose.model('Bookmark', bookmarkSchema);

@@ -32,20 +32,28 @@ export const addBookmark = async (req, res) => {
     await poem.save();
 
     // 알림 생성 (시 작성자에게)
-    if (poem.authorId.toString() !== userId.toString()) {
-      const notification = new Notification({
-        recipientId: poem.authorId,
-        senderId: userId,
-        type: 'poem_bookmarked',
-        entityId: poemId,
-        entityType: 'poem',
-        message: `${req.user.penname}님이 회원님의 시를 북마크했습니다.`
-      });
-      await notification.save();
+    try {
+      if (poem.authorId && userId && 
+          poem.authorId.toString && userId.toString && 
+          poem.authorId.toString() !== userId.toString()) {
+        const notification = new Notification({
+          recipientId: poem.authorId,
+          senderId: userId,
+          type: 'poem_bookmarked',
+          entityId: poemId,
+          entityType: 'poem',
+          message: `${req.user.penname || '사용자'}님이 회원님의 시를 북마크했습니다.`
+        });
+        await notification.save();
+      }
+    } catch (notificationError) {
+      console.error('알림 생성 중 오류 발생:', notificationError);
+      // 알림 생성 실패해도 북마크 기능은 성공으로 처리
     }
 
     res.status(201).json({ message: '시를 북마크했습니다.' });
   } catch (error) {
+    console.error('북마크 추가 중 오류:', error);
     res.status(500).json({ message: error.message });
   }
 };
