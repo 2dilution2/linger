@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch, Platform, StatusBar, KeyboardAvoidingView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { poemService, interactionService } from '../services';
-import { Header, HeaderButton } from '../components/Header';
-import styles, { colors, spacing, typography, containers, inputs, buttons, texts, borderRadius } from '../styles/common';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing, typography, containers, inputs, buttons, texts, borderRadius, layout, shadows } from '../styles/common';
 
 export function WritePoemScreen({ navigation, route }) {
   const [title, setTitle] = useState('');
@@ -17,6 +17,7 @@ export function WritePoemScreen({ navigation, route }) {
   const [isPublic, setIsPublic] = useState(false); // 공개 여부 상태
   const [isEditMode, setIsEditMode] = useState(false); // 수정 모드 상태
   const [poemId, setPoemId] = useState(null); // 수정할 시 ID
+  const insets = useSafeAreaInsets();
   
   // 네비게이션 옵션 설정 - 헤더 숨김 처리
   useEffect(() => {
@@ -245,22 +246,46 @@ export function WritePoemScreen({ navigation, route }) {
     }
   };
 
-  // 헤더 오른쪽 저장 버튼
-  const SaveButton = () => (
-    <HeaderButton 
-      iconName="checkmark" 
-      onPress={savePoem}
-      color={colors.primary}
-    />
-  );
+  // 커스텀 헤더 렌더링
+  const renderHeader = () => {
+    return (
+      <View style={localStyles.headerContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+        <View style={localStyles.headerContent}>
+          {/* 뒤로가기 버튼 */}
+          <TouchableOpacity
+            style={localStyles.headerButton}
+            onPress={handleBackPress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          
+          {/* 제목 */}
+          <Text style={localStyles.headerTitle}>
+            {isEditMode ? "시 수정하기" : "시 쓰기"}
+          </Text>
+          
+          {/* 저장 버튼 */}
+          <TouchableOpacity
+            style={localStyles.headerButton}
+            onPress={savePoem}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="checkmark" size={26} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <View style={containers.screen}>
-      <Header
-        title={isEditMode ? "시 수정하기" : "시 쓰기"}
-        onBackPress={handleBackPress}
-        rightComponent={<SaveButton />}
-      />
+    <KeyboardAvoidingView 
+      style={containers.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* 커스텀 헤더 */}
+      {renderHeader()}
       
       {loading ? (
         <View style={containers.centered}>
@@ -272,8 +297,12 @@ export function WritePoemScreen({ navigation, route }) {
       ) : (
         <ScrollView 
           style={localStyles.container}
-          contentContainerStyle={localStyles.contentContainer}
+          contentContainerStyle={[
+            localStyles.contentContainer,
+            { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'android' ? 60 : 0) }
+          ]}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {/* 제목 입력 */}
           <View style={localStyles.cardContainer}>
@@ -345,33 +374,6 @@ export function WritePoemScreen({ navigation, route }) {
                   </View>
                 )}
                 
-                {/* 인기 태그 목록 */}
-                {emotionTags.length > 0 && (
-                  <View style={localStyles.popularTagsContainer}>
-                    <Text style={localStyles.tagSectionTitle}>인기 태그</Text>
-                    <View style={localStyles.tagsGrid}>
-                      {emotionTags.slice(0, 10).map(tag => (
-                        <TouchableOpacity
-                          key={`popular-${tag.id}`}
-                          style={[
-                            localStyles.popularTag,
-                            selectedTags.includes(tag.id) && localStyles.selectedPopularTag
-                          ]}
-                          onPress={() => toggleTag(tag.id)}
-                        >
-                          <Text 
-                            style={[
-                              localStyles.popularTagText,
-                              selectedTags.includes(tag.id) && localStyles.selectedPopularTagText
-                            ]}
-                          >
-                            #{tag.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
               </>
             )}
           </View>
@@ -398,70 +400,78 @@ export function WritePoemScreen({ navigation, route }) {
           <TouchableOpacity
             style={localStyles.saveButton}
             onPress={savePoem}
+            activeOpacity={0.8}
           >
             <Text style={localStyles.saveButtonText}>
-              {isEditMode ? '수정하기' : '저장하기'}
+              {isEditMode ? '수정하기' : '작성하기'}
             </Text>
           </TouchableOpacity>
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const localStyles = StyleSheet.create({
+  // 헤더 스타일
+  headerContainer: {
+    backgroundColor: colors.background,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e0e0e0',
+    paddingTop: Platform.OS === 'ios' ? 36 : StatusBar.currentHeight || 0,
+  },
+  headerContent: {
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.medium,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: colors.text,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
   },
   contentContainer: {
     padding: spacing.medium,
     paddingBottom: spacing.xxlarge * 2,
   },
   cardContainer: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: spacing.medium,
-    paddingVertical: spacing.medium,
+    paddingVertical: spacing.small,
     marginBottom: spacing.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...shadows.small,
   },
   titleInput: {
-    fontSize: typography.title3,
-    fontFamily: typography.fontFamilyBold,
+    fontSize: 16,
+    fontWeight: '400',
     paddingVertical: spacing.small,
     color: colors.text,
   },
   contentCard: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: spacing.medium,
     marginBottom: spacing.large,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    ...shadows.small,
   },
   contentInput: {
     minHeight: 200,
-    fontSize: typography.body,
+    fontSize: 16,
     lineHeight: 24,
     color: colors.text,
     textAlignVertical: 'top',
@@ -484,20 +494,10 @@ const localStyles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.small,
-    borderRadius: 20,
+    borderRadius: borderRadius.round,
     marginRight: spacing.small,
     marginBottom: spacing.small,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...shadows.small,
   },
   tagText: {
     color: 'white',
@@ -509,20 +509,10 @@ const localStyles = StyleSheet.create({
   },
   tagInput: {
     height: 44,
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.medium,
     paddingHorizontal: spacing.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...shadows.small,
   },
   suggestedTagsContainer: {
     marginBottom: spacing.medium,
@@ -531,10 +521,10 @@ const localStyles = StyleSheet.create({
     paddingVertical: spacing.small,
   },
   suggestionTag: {
-    backgroundColor: 'white',
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.small,
-    borderRadius: 16,
+    borderRadius: borderRadius.large,
     marginRight: spacing.small,
     borderWidth: 1,
     borderColor: colors.border,
@@ -545,20 +535,10 @@ const localStyles = StyleSheet.create({
   },
   popularTagsContainer: {
     marginTop: spacing.medium,
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.medium,
     padding: spacing.medium,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...shadows.small,
   },
   tagSectionTitle: {
     fontSize: typography.subhead,
@@ -574,7 +554,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     paddingHorizontal: spacing.medium,
     paddingVertical: spacing.small,
-    borderRadius: 16,
+    borderRadius: borderRadius.large,
     marginRight: spacing.small,
     marginBottom: spacing.small,
   },
@@ -589,21 +569,11 @@ const localStyles = StyleSheet.create({
     color: 'white',
   },
   switchCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.medium,
     padding: spacing.medium,
     marginBottom: spacing.large,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    ...shadows.small,
   },
   switchContainer: {
     flexDirection: 'row',
@@ -617,26 +587,16 @@ const localStyles = StyleSheet.create({
     fontStyle: 'italic',
   },
   saveButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#007AFF',
     paddingVertical: spacing.medium,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    marginTop: spacing.medium,
   },
   saveButtonText: {
     color: 'white',
-    fontSize: typography.body,
-    fontFamily: typography.fontFamilyBold,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

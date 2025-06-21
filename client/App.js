@@ -132,7 +132,8 @@ const MainApp = () => {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaViewRN style={containers.safeArea}>
+      <SafeAreaViewRN style={containers.safeArea} edges={['top']}>
+        <StatusBar style="auto" />
         <NavigationContainer 
           ref={navigationRef}
           theme={MyTheme}
@@ -164,12 +165,8 @@ const MainApp = () => {
               headerRightContainerStyle: {
                 paddingRight: spacing.medium,
               },
-              // 안드로이드에서 네비게이션 바 겹침 방지
               contentStyle: {
                 backgroundColor: colors.background,
-                ...(Platform.OS === 'android' && {
-                  paddingBottom: 10, // 안드로이드 네비게이션 바 높이 (줄임)
-                }),
               },
             }}
             initialRouteName={isLoggedIn ? "Main" : "Login"}
@@ -211,7 +208,6 @@ const MainApp = () => {
             />
           </Stack.Navigator>
         </NavigationContainer>
-        <StatusBar style="auto" />
       </SafeAreaViewRN>
     </SafeAreaProvider>
   );
